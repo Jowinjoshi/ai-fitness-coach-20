@@ -12,8 +12,9 @@ import Footer from '@/components/Footer';
 import PageTransition from '@/components/PageTransition';
 import { Dumbbell, UtensilsCrossed, Sparkles, Download, Volume2, VolumeX, Loader2, ArrowLeft } from 'lucide-react';
 import { motion } from 'framer-motion';
-import jsPDF from 'jspdf';
-import 'jspdf-autotable';
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import { toast } from 'sonner';
 import Link from 'next/link';
 
 interface Plan {
@@ -101,98 +102,104 @@ export default function PlanPage() {
   const handleDownloadPDF = () => {
     if (!plan) return;
 
-    const doc = new jsPDF();
-    let yPos = 20;
+    try {
+      const doc = new jsPDF();
+      let yPos = 20;
 
-    // Title
-    doc.setFontSize(20);
-    doc.text('AI Fitness Plan', 105, yPos, { align: 'center' });
-    yPos += 10;
-
-    // User Info
-    doc.setFontSize(12);
-    doc.text(`Goal: ${plan.fitnessGoal} | Level: ${plan.fitnessLevel}`, 105, yPos, { align: 'center' });
-    yPos += 10;
-
-    // Workout Section
-    if (plan.workoutContent && plan.workoutContent.weeklySchedule) {
-      doc.setFontSize(16);
-      doc.text('Workout Plan', 20, yPos);
+      // Title
+      doc.setFontSize(20);
+      doc.text('AI Fitness Plan', 105, yPos, { align: 'center' });
       yPos += 10;
 
-      plan.workoutContent.weeklySchedule.forEach((day: any) => {
-        doc.setFontSize(14);
-        doc.text(`${day.day} - ${day.focus}`, 20, yPos);
-        yPos += 7;
+      // User Info
+      doc.setFontSize(12);
+      doc.text(`Goal: ${plan.fitnessGoal} | Level: ${plan.fitnessLevel}`, 105, yPos, { align: 'center' });
+      yPos += 10;
 
-        const exercises = day.exercises?.map((ex: any) => [
-          ex.name,
-          `${ex.sets} sets`,
-          ex.reps,
-          ex.rest
-        ]) || [];
+      // Workout Section
+      if (plan.workoutContent && plan.workoutContent.weeklySchedule) {
+        doc.setFontSize(16);
+        doc.text('Workout Plan', 20, yPos);
+        yPos += 10;
 
-        (doc as any).autoTable({
-          startY: yPos,
-          head: [['Exercise', 'Sets', 'Reps', 'Rest']],
-          body: exercises,
-          theme: 'grid',
-          headStyles: { fillColor: [139, 92, 246] },
+        plan.workoutContent.weeklySchedule.forEach((day: any) => {
+          doc.setFontSize(14);
+          doc.text(`${day.day} - ${day.focus}`, 20, yPos);
+          yPos += 7;
+
+          const exercises = day.exercises?.map((ex: any) => [
+            ex.name,
+            `${ex.sets} sets`,
+            ex.reps,
+            ex.rest
+          ]) || [];
+
+          autoTable(doc, {
+            startY: yPos,
+            head: [['Exercise', 'Sets', 'Reps', 'Rest']],
+            body: exercises,
+            theme: 'grid',
+            headStyles: { fillColor: [139, 92, 246] },
+          });
+
+          yPos = (doc as any).lastAutoTable.finalY + 10;
+          if (yPos > 270) {
+            doc.addPage();
+            yPos = 20;
+          }
         });
-
-        yPos = (doc as any).lastAutoTable.finalY + 10;
-        if (yPos > 270) {
-          doc.addPage();
-          yPos = 20;
-        }
-      });
-    }
-
-    // Diet Section
-    if (plan.dietContent && plan.dietContent.meals) {
-      if (yPos > 200) {
-        doc.addPage();
-        yPos = 20;
       }
 
-      doc.setFontSize(16);
-      doc.text('Diet Plan', 20, yPos);
-      yPos += 10;
-
-      doc.setFontSize(12);
-      doc.text(`Daily Calories: ${plan.dietContent.dailyCalories || 'N/A'}`, 20, yPos);
-      yPos += 10;
-
-      plan.dietContent.meals.forEach((meal: any) => {
-        doc.setFontSize(14);
-        doc.text(`${meal.meal} - ${meal.time}`, 20, yPos);
-        yPos += 7;
-
-        const foods = meal.foods?.map((food: any) => [
-          food.name,
-          `${food.calories} cal`,
-          food.protein || 'N/A',
-          food.carbs || 'N/A',
-          food.fats || 'N/A'
-        ]) || [];
-
-        (doc as any).autoTable({
-          startY: yPos,
-          head: [['Food', 'Calories', 'Protein', 'Carbs', 'Fats']],
-          body: foods,
-          theme: 'grid',
-          headStyles: { fillColor: [34, 197, 94] },
-        });
-
-        yPos = (doc as any).lastAutoTable.finalY + 10;
-        if (yPos > 270) {
+      // Diet Section
+      if (plan.dietContent && plan.dietContent.meals) {
+        if (yPos > 200) {
           doc.addPage();
           yPos = 20;
         }
-      });
-    }
 
-    doc.save(`fitness-plan-${plan.id}.pdf`);
+        doc.setFontSize(16);
+        doc.text('Diet Plan', 20, yPos);
+        yPos += 10;
+
+        doc.setFontSize(12);
+        doc.text(`Daily Calories: ${plan.dietContent.dailyCalories || 'N/A'}`, 20, yPos);
+        yPos += 10;
+
+        plan.dietContent.meals.forEach((meal: any) => {
+          doc.setFontSize(14);
+          doc.text(`${meal.meal} - ${meal.time}`, 20, yPos);
+          yPos += 7;
+
+          const foods = meal.foods?.map((food: any) => [
+            food.name,
+            `${food.calories} cal`,
+            food.protein || 'N/A',
+            food.carbs || 'N/A',
+            food.fats || 'N/A'
+          ]) || [];
+
+          autoTable(doc, {
+            startY: yPos,
+            head: [['Food', 'Calories', 'Protein', 'Carbs', 'Fats']],
+            body: foods,
+            theme: 'grid',
+            headStyles: { fillColor: [34, 197, 94] },
+          });
+
+          yPos = (doc as any).lastAutoTable.finalY + 10;
+          if (yPos > 270) {
+            doc.addPage();
+            yPos = 20;
+          }
+        });
+      }
+
+      doc.save(`fitness-plan-${plan.id}.pdf`);
+      toast.success('Plan downloaded successfully!');
+    } catch (error) {
+      console.error('PDF generation error:', error);
+      toast.error('Failed to generate PDF. Please try again.');
+    }
   };
 
   if (isLoading) {
